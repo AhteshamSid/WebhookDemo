@@ -1,0 +1,244 @@
+@RestResource(urlMapping='/PushPayIntegration/*')
+global class PushPayIntegration {
+    public static string payment;
+    public static string requestmtring;
+    @HttpPost   
+    global static void doPost(){ 
+        //*******************************************************************************************************************************
+        // Code block To get Payment Link (test)
+        //*******************************************************************************************************************************      
+        if(test.isrunningtest()){
+            http httpsn = new http();
+            httpRequest requestm = new httpRequest();
+            requestm.setMethod('GET');
+            requestm.setEndpoint('https://auth.pushpay.com/Testinggg/oauth/token');      
+            requestm.setHeader('Authorizations','Bearers');
+            httpResponse Respo = httpsn.send(requestm);
+            requestmtring = (string)Respo.getBody();
+        }else{
+            //*******************************************************************************************************************************
+            // Code block To get Payment Link
+            //*******************************************************************************************************************************
+            RestRequest req = RestContext.request; 
+            Blob bodys = req.requestBody;
+            requestmtring = bodys.toString();
+        }   
+        JSONParser parsers = JSON.createParser(requestmtring);
+        while (parsers.nextToken() != null) {
+            if(parsers.getText() == 'payment') {
+                parsers.nextToken();
+                payment = parsers.getText();
+            }
+        }
+        //*******************************************************************************************************************************
+        // Code block To get access token
+        //*******************************************************************************************************************************
+        string ClientId ;
+        string ClientSecret ;
+        string endpoint ;
+        string body ;
+        if(label.isSandBox == 'true'){
+            ClientId = 'fosterthecity-bespoke-sandbox';
+            ClientSecret = 'j2cwAKGD9xqBounmEfVsZNTmj1xK2IYfMw0ljWJMGyI';
+            endpoint = 'https://auth.pushpay.com/pushpay-sandbox/oauth/token';
+            body = 'grant_type=client_credentials&scope=list_anticipated_payments merchant:view_payments merchant:view_recurring_payments read';
+        }
+        else if(label.isSandBox == 'false'){
+            ClientId = 'fosterthecity-bespoke-prod' ;
+            ClientSecret = 'pyrY0vAgjSKG8BaY6gMj3mLzJFbodEF7jn2QQLSq1Q';
+            endpoint = 'https://auth.pushpay.com/pushpay/oauth/token' ;
+            body = 'grant_type=client_credentials&scope=list_anticipated_payments merchant:view_payments merchant:view_recurring_payments read';
+        }
+        string AccessToken = '';
+        Blob headerValue = Blob.valueOf(ClientId + ':' + ClientSecret);
+        String authorizationHeader = 'Basic ' +  EncodingUtil.base64Encode(headerValue);
+        http http = new http();
+        httpRequest request = new httpRequest();
+        request.setMethod('POST');
+        request.setEndpoint(endpoint);
+        request.setHeader('Content-Type', 'application/x-www-form-urlencoded');
+        request.setHeader('Authorization', authorizationHeader);
+        request.setBody(body);
+        httpResponse Res = http.send(request);
+        if (Res.getStatusCode() == 200) {
+            Map<String, Object> ResponseMap = (Map<String, Object>) JSON.deserializeUntyped(Res.getBody());        
+            AccessToken = (string)ResponseMap.get('access_token');
+            system.debug('access token: ' + AccessToken );
+        } else {
+            system.debug('response error ' + Res.getBody() );
+        } 
+        //*******************************************************************************************************************************
+        // code block to get  data from payment link 
+        //*******************************************************************************************************************************     
+        httpRequest requestmn = new httpRequest();
+        requestmn.setMethod('GET');
+        requestmn.setEndpoint(payment);      
+        requestmn.setHeader('Authorization','Bearer'+' '+ AccessToken);
+        httpResponse Resp = http.send(requestmn);
+        system.debug('payment response status code ' + Resp.getStatusCode() );
+        system.debug('payment response body ' + Resp.getBody() );
+        //*******************************************************************************************************************************
+        // Variable declaration
+        //*******************************************************************************************************************************
+        string lastName , firstName , email , mobile , street1 , street2 ,city ,state , postalCode , dateAndTime ,amount, currencyType , transactioCode,
+            batchId, batch, account, recurringPaymentToken, key;
+        //*******************************************************************************************************************************
+        //code block to store  data from payment link into declared variables
+        //*******************************************************************************************************************************
+        JSONParser parser = JSON.createParser((string)Resp.getBody());
+        while (parser.nextToken() != null) {
+            if(parser.getText() == 'lastName') {
+                parser.nextToken();
+                lastName = parser.getText();
+            }
+			if(parser.getText() == 'firstName') {
+                parser.nextToken();
+                firstName = parser.getText();
+            }
+            if(parser.getText() == 'payer') {
+                parser.nextToken() ;
+                parser.nextToken() ;
+                parser.nextToken() ;
+                key = parser.getText();
+            }
+            if(parser.getText() == 'batchId') {
+                parser.nextToken();
+                batchId = parser.getText();
+            }
+            if(parser.getText() == 'id') {
+                parser.nextToken() ;
+                parser.nextToken() ;
+                parser.nextToken() ;
+                parser.nextToken() ;
+                parser.nextToken() ;
+                batch = parser.getText();
+            }
+            if(parser.getText() == 'name') {
+                parser.nextToken();
+                account = parser.getText();
+            }
+            if(parser.getText() == 'emailAddress') {
+                parser.nextToken();
+                email = parser.getText();
+            }
+            if(parser.getText() == 'mobileNumber') {
+                parser.nextToken();
+                mobile = parser.getText();
+            }
+            if(parser.getText() == 'line1') {
+                parser.nextToken();
+                street1 = parser.getText();
+            }
+            if(parser.getText() == 'line2') {
+                parser.nextToken();
+                street2 = parser.getText();
+            }
+            if(parser.getText() == 'city') {
+                parser.nextToken();
+                city = parser.getText();
+            }
+            if(parser.getText() == 'state') {
+                parser.nextToken();
+                state = parser.getText();
+            }
+            if(parser.getText() == 'zipOrPostCode') {
+                parser.nextToken();
+                postalCode = parser.getText();
+            }
+            if(parser.getText() == 'updatedOn') {
+                parser.nextToken();
+                dateAndTime = parser.getText();
+            }
+            if(parser.getText() == 'amount') {
+                parser.nextToken();
+                amount = parser.getText();
+            }
+            if(parser.getText() == 'currency') {
+                parser.nextToken();
+                currencyType = parser.getText();
+            }
+            if(parser.getText() == 'transactionId') {
+                parser.nextToken();
+                transactioCode = parser.getText();
+            }
+            if(parser.getText() == 'recurringPaymentToken') {
+                if(parser.nextToken() != null){
+                    recurringPaymentToken = 'Yes';   
+                }     
+            }
+            if(recurringPaymentToken == null){
+                recurringPaymentToken = 'No';   
+            }  
+        }   
+        //*******************************************************************************************************************************
+        //code block to store  data from declared variables into details object
+        //*******************************************************************************************************************************
+        GiftEntries__c giftObj = new GiftEntries__c(); 
+        giftObj.Name = lastName;
+        giftObj.Amount__c = decimal.valueOf(amount) ;
+        giftObj.date_time__c= dateAndTime;
+        system.debug('key'+key);
+        contact conObj = new contact();
+        conObj.key__c = key;
+        conObj.LastName = lastName;
+        conObj.FirstName = firstName;
+        conObj.Donor_Email__c = email;
+        conObj.MobilePhone = mobile;
+        conObj.street1__c = street1;
+        conObj.street2__c = street2;
+        conObj.MailingCity= city;
+        conObj.MailingState = state;
+        conObj.MailingPostalCode = postalCode;
+        conObj.date_time__c = dateAndTime;
+        conObj.amount__c = amount ;
+        list<contact> conLst = [Select id, key__c from contact where key__c =:key ];
+        system.debug(conLst);
+        id accid ;
+        if(conLst.size() == 0){
+            insert conObj; 
+            system.debug('conObj'+conObj);
+            accid = [select id,accountid  from contact where id=:conObj.id ].accountid;
+            giftObj.Linked_Account__c = accId;
+            giftObj.Linked_Contact__c = conObj.id;
+            system.debug('giftObj'+giftObj);
+        }else if(conLst.size() > 0){
+            conObj.id =conLst[0].Id;
+            system.debug(conObj.id);
+            update conObj;
+            system.debug('conObj'+conObj);
+            accid = [select id,accountid  from contact where id=:conObj.id ].accountid;
+            giftObj.Linked_Account__c = accid;
+            giftObj.Linked_Contact__c = conObj.id;
+            system.debug('giftObj'+giftObj);
+        }
+        insert giftObj; 
+        list<GiftEntries__c > giftLst = [SELECT Id,date_time__c , Name, CreatedDate, LastModifiedDate, Amount__c, Linked_Account__c, Linked_Contact__c FROM GiftEntries__c where Linked_Account__c =:accid order by CreatedDate asc limit 1 ];
+        system.debug('giftLst'+giftLst);
+        giftObj.FirstGiftAmount__c = giftLst[0].Amount__c;
+        system.debug('FirstGiftAmount__c'+giftObj.FirstGiftAmount__c);
+        giftObj.FirstGiftDate__c = giftLst[0].CreatedDate;
+        system.debug('giftLst'+giftObj.FirstGiftDate__c);
+        
+        giftLst = [SELECT Id, Name, CreatedDate, LastModifiedDate, Amount__c, Linked_Account__c, Linked_Contact__c FROM GiftEntries__c where Linked_Account__c =:accid order by CreatedDate desc limit 1 ];
+        
+        giftObj.LastGiftAmount__c = giftLst[0].Amount__c;
+        system.debug('LastGiftAmount__c'+giftObj.LastGiftAmount__c);
+        giftObj.LastGiftDate__c = giftLst[0].CreatedDate;
+        system.debug('LastGiftDate__c'+giftObj.LastGiftDate__c);
+        
+        giftLst = [SELECT Id, Name, CreatedDate, LastModifiedDate, Amount__c, Linked_Account__c, Linked_Contact__c FROM GiftEntries__c where Linked_Account__c =:accid order by Amount__c desc limit 1 ];
+        
+        giftObj.LargestGiftDate__c = giftLst[0].CreatedDate;
+        system.debug('LargestGiftDate__c'+giftObj.LargestGiftDate__c);
+        giftObj.id = giftLst[0].id ; 
+        account accObj = new account();
+        accObj.id = accid;
+        accObj.name = conObj.LastName + firstName != ""? ", "+conObj.FirstName : "" ;
+        accObj.First_Gift_Amount__c = giftObj.FirstGiftAmount__c;
+        accObj.npo02__FirstCloseDate__c =date.valueOf(giftObj.FirstGiftDate__c) ;
+        accObj.npo02__LastOppAmount__c = giftObj.LastGiftAmount__c;
+        accObj.npo02__LastCloseDate__c =date.valueOf(giftObj.LastGiftDate__c);
+        accObj.Largest_Gift_Date__c = date.valueOf(giftObj.LargestGiftDate__c);
+        update accObj;
+    }
+}
